@@ -1,0 +1,50 @@
+{{ $architecture := or .architecture "arm64" }}
+{{ $suite := or .suite "bullseye" }}
+{{ $osupdatepack := or .osupdatepack (printf "osupdatepack-%s-%s" $suite $architecture) }}
+{{ $hawkbitswupdate := or .hawkbitswupdate (printf "hawkbitswupdate-%s-%s" $suite $architecture) }}
+
+{{ $architecture := or .architecture "arm64" }}
+
+{{ $imgname := or .imgname "dummy" }}
+
+architecture: {{ $architecture }}
+
+actions:
+  - action: unpack
+    description: Unpack osupdatepack
+    file: {{ $osupdatepack }}.tar.gz
+
+  - action: overlay
+    description: Copy swupdate
+    source: prebuilt/swupdate
+    destination: /opt
+
+  - action: apt
+    description: Install git for swupdate build
+    packages:
+      - git
+
+  - action: run
+    description: install swupdate
+    chroot: true
+    script: scripts/build-hawkbitswupdate.sh
+
+  - action: overlay
+    description: Add swupdate cfg file to etc
+    source: overlay/etc
+    destination: /etc/
+
+  - action: run
+    description: uninstall git
+    chroot: true
+    script: scripts/uninstall-git.sh
+
+  - action: pack
+    description: Pack into tarball
+    file: {{ $hawkbitswupdate }}.tar.gz
+
+  - action: recipe
+    recipe: ../hawkbitdebupdate/image.yaml
+    variables:
+    osinpack: hawkbitswupdate
+    imgname: {{ $imgname }}
